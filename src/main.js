@@ -1,45 +1,42 @@
 require("babel/polyfill");
 const $ = require('jquery');
+const util = require('./util.js');
+const TumblrFeed = require('./TumblrFeed.js');
+const CounterLabel = require('./CounterLabel.js');
 
 let DURATION = 60;
+let startTime = 0;
+let rafId = 0;
+let feed = new TumblrFeed();
 
-function parseUrl() {
-  const search = location.search.substring(1);
-  if (search == '') {
-    return;
-  }
-  // http://stackoverflow.com/questions/8648892/convert-url-parameters-to-a-javascript-object
-  const param = JSON.parse('{"' + decodeURI(search).replace(/"/g, '\\"').replace(/&/g, '","').replace(/=/g,'":"') + '"}');
-  DURATION = param.time;
-}
+let timerLabel = document.getElementById('timer_label');
+let counterLabel = new CounterLabel('timer_label');
 
 function initialize() {
-  parseUrl();
+  const param = util.parseUrlParam();
+  if(param.time) {
+    DURATION = param.time;
+  }
   let account = $('#tumblr_account')[0];
   let submit = $('#tumblr_submit');
-  submit.click((event)=>{
-    loadUser(account.value);
-  });
   account.value = loadLastAccount();
+  submit.click((event)=>{
+    // loadUser(account.value);
+    start(account.value);
+  });
 }
 
-function loadUser(user, start=0) {
-  const url = `http://${user}.tumblr.com/api/read/json`;
-  $.ajax({
-    url:url,
-    data:{
-      num:1,
-      type:'photo',
-      start:start
-    },
-    dataType:'jsonp',
-    success:(results)=>{
-      $('#addressinput').fadeOut(500);
-      saveLastAccount(user);
-      loadPhoto(results.posts[0]['photo-url-1280']);
-      nextSketch(results);
-    }
-  });
+async function start(account) {
+  await feed.initialize(account);
+  saveLastAccount(account);
+  $('#addressinput').fadeOut(500);
+
+  while(true) {
+    let start = Math.floor(Math.random()*feed.total);
+    await feed.loadPhotoAsync(start);
+    await loadPhoto(feed.lastImageUrl);
+    await counterLabel.countUp(DURATION);
+  }
 }
 
 function saveLastAccount(account) {
@@ -50,23 +47,28 @@ function loadLastAccount() {
   return window.localStorage.getItem('last_account');
 }
 
-function nextSketch(json) {
-  console.log(json);
-  const total = json['posts-total'];
-  const user = json.tumblelog.name;
-  setTimeout(()=>{
-    let start = Math.floor(Math.random()*total);
-    loadUser(user, start);
-  },1000*DURATION);
-}
-
 function loadPhoto(url) {
-  const photo = $('#tumblr_photo');
-  photo.bind('load', ()=>{
-    photo.fadeIn(1000);
-  });
-  photo.fadeOut(1000, ()=>{
-    photo[0].src = url;
+  return new Promise((resolve, reject)=>{
+    const photo = $('#tumblr_photo');
+    photo.bind('load', ()=>{
+      let img = photo[0];
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      const aspect = w/h;
+      if (img.width / img.height < aspect) {
+        img.style.width = 'auto';
+        img.style.height = '100%';
+      }
+      else {
+        img.style.width = '100%';
+        img.style.height = 'auto';
+      }
+      photo.fadeIn(1000);
+      resolve();
+    });
+    photo.fadeOut(1000, ()=>{
+      photo[0].src = url;
+    });
   });
 }
 
