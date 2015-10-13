@@ -5,12 +5,8 @@ const TumblrFeed = require('./TumblrFeed.js');
 const CounterLabel = require('./CounterLabel.js');
 
 let DURATION = 60;
-let startTime = 0;
-let rafId = 0;
-let feed = new TumblrFeed();
-
-let timerLabel = document.getElementById('timer_label');
-let counterLabel = new CounterLabel('timer_label');
+const feed = new TumblrFeed();
+const counterLabel = new CounterLabel('timer_label');
 
 function initialize() {
   const param = util.parseUrlParam();
@@ -21,7 +17,6 @@ function initialize() {
   let submit = $('#tumblr_submit');
   account.value = loadLastAccount();
   submit.click((event)=>{
-    // loadUser(account.value);
     start(account.value);
   });
 }
